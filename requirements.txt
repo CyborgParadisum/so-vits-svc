@@ -19,3 +19,7 @@ praat-parselmouth
 onnx
 onnxsim
 onnxoptimizer
+# slack_sdk
+
+python-dotenv
+

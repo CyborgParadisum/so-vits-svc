@@ -7,7 +7,7 @@ import logging
 import json
 import subprocess
 
-import librosa
+# import librosa
 import numpy as np
 import torchaudio
 from scipy.io.wavfile import read
@@ -92,12 +92,17 @@ def keep_fixed_number_of_files(dir_path, num_files_to_keep):
     dir_path: The directory comprise target files
     num_files_to_keep: The number of file that was the latest generated files
   """
-  all_files = glob.glob(os.path.join(dir_path, '*'))
-  all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-  files_to_delete = all_files[num_files_to_keep]
-  for file_path in files_to_delete:
-    os.remove(file_path)
-    logger.warn("The file: {} has been deleted".format(file_path))
+  def remove_old_checkpoints(paths):
+      all_files = glob.glob(os.path.join(dir_path, paths))
+      all_files.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
+      # all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+      files_to_delete = all_files[0:num_files_to_keep   ]
+      for file_path in files_to_delete:
+        os.remove(file_path)
+        logger.warn("The file: {} has been deleted".format(file_path))
+  remove_old_checkpoints('D_*.pth')
+  remove_old_checkpoints('G_*.pth')
+
 
 def load_checkpoint(checkpoint_path, model, optimizer=None):
   assert os.path.isfile(checkpoint_path)
@@ -142,9 +147,9 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
               'iteration': iteration,
               'optimizer': optimizer.state_dict(),
               'learning_rate': learning_rate}, checkpoint_path)
-  clean_ckpt = False
+  clean_ckpt = True
   if clean_ckpt:
-    clean_checkpoints(path_to_models='logs/32k/', n_ckpts_to_keep=3, sort_by_time=True)
+    clean_checkpoints(path_to_models='logs/32k/', n_ckpts_to_keep=5, sort_by_time=True)
 
 def clean_checkpoints(path_to_models='logs/48k/', n_ckpts_to_keep=2, sort_by_time=True):
   """Freeing up space by deleting saved ckpts

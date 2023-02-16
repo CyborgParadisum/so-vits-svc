@@ -1,6 +1,2 @@
-./dataset/32k/nen/kne110_005.wav
-./dataset/32k/yunhao/001827.wav
-./dataset/32k/jishuang/000104.wav
-./dataset/32k/jishuang/000223.wav
-./dataset/32k/nen/kne110_004.wav
-./dataset/32k/yunhao/001828.wav
+./dataset/32k/mikisayaka/5e0b88ac3e41865cff273590.wav
+./dataset/32k/mikisayaka/5e0b88a73e41865cff27358e.wav

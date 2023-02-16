@@ -1,4 +1,10 @@
+import datetime
 import logging
+
+from torch.optim import AdamW
+
+import alert
+
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
 import json
@@ -10,7 +16,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import torch.multiprocessing as mp
+import torch.multiprocessing
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
@@ -40,15 +46,16 @@ def main():
     """Assume Single Node Multi GPUs Training Only"""
     assert torch.cuda.is_available(), "CPU training is not allowed."
     hps = utils.get_hparams()
-
     n_gpus = torch.cuda.device_count()
+    print("n_gpus", n_gpus)
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = hps.train.port
-
-    mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
+    # n_gpus =1
+    torch.multiprocessing.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
 
 def run(rank, n_gpus, hps):
+    print("rank", rank, "n_gpus", n_gpus, "hps", hps)
     global global_step
     if rank == 0:
         logger = utils.get_logger(hps.model_dir)
@@ -62,8 +69,20 @@ def run(rank, n_gpus, hps):
     torch.cuda.set_device(rank)
 
     train_dataset = TextAudioSpeakerLoader(hps.data.training_files, hps)
-    train_loader = DataLoader(train_dataset, num_workers=8, shuffle=False, pin_memory=True,
-                              batch_size=hps.train.batch_size)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(
+    #     train_dataset,
+    #     num_replicas=n_gpus,
+    #     rank=rank,
+    #     shuffle=True)
+    # train_loader = DataLoader(train_dataset, num_workers=8, pin_memory=False,
+    #                           batch_size=hps.train.batch_size,
+    #                           sampler=train_sampler)
+
+    train_loader2 = DataLoader(train_dataset, num_workers=8, shuffle=False, pin_memory=True,
+                               batch_size=hps.train.batch_size)
+    train_loader = train_loader2
+    print("train_loader", train_loader, len(train_loader))
+    print("train_loader2", train_loader2, len(train_loader2))
     if rank == 0:
         eval_dataset = EvalDataLoader(hps.data.validation_files, hps)
         eval_loader = DataLoader(eval_dataset, num_workers=1, shuffle=False,
@@ -93,19 +112,22 @@ def run(rank, n_gpus, hps):
                                                    optim_g)
         _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d,
                                                    optim_d)
-        # 这边避免训练的过程中持续不断的加大模型的量级，进行历史的窗口清理
-        utils.keep_fixed_number_of_files(dir_path=hps.model_dir, num_files_to_keep=10)
         global_step = (epoch_str - 1) * len(train_loader)
-    except:
+
+    except Exception as e:
+        print("An error occurred:", e)
+        import traceback
+        traceback.print_exc()
         epoch_str = 1
         global_step = 0
-
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2)
 
     scaler = GradScaler(enabled=hps.train.fp16_run)
 
-    for epoch in range(epoch_str, hps.train.epochs + 1):
+    print(f"Start training...  {epoch_str} -> {hps.train.epochs + 2}")
+    print("global_step", global_step, rank)
+    for epoch in range(epoch_str, hps.train.epochs + 2):
         if rank == 0:
             train_and_evaluate(rank, epoch, hps, [net_g, net_d], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler,
                                [train_loader, eval_loader], logger, [writer, writer_eval])
@@ -119,17 +141,26 @@ def run(rank, n_gpus, hps):
 def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers):
     net_g, net_d = nets
     optim_g, optim_d = optims
+
+    net_g: DDP = net_g
+    net_d: DDP = net_d
+    optim_g: AdamW = optim_g
+    optim_d: AdamW = optim_d
+
     scheduler_g, scheduler_d = schedulers
     train_loader, eval_loader = loaders
+    # print(train_loader, eval_loader)
     if writers is not None:
         writer, writer_eval = writers
 
     # train_loader.batch_sampler.set_epoch(epoch)
+    # train_loader.sampler.set_epoch(epoch)
     global global_step
 
     net_g.train()
     net_d.train()
     for batch_idx, items in enumerate(train_loader):
+        print("batch_idx", batch_idx)
         c, f0, spec, y, spk = items
         g = spk.cuda(rank, non_blocking=True)
         spec, y = spec.cuda(rank, non_blocking=True), y.cuda(rank, non_blocking=True)
@@ -145,7 +176,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
         with autocast(enabled=hps.train.fp16_run):
             y_hat, ids_slice, z_mask, \
-            (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(c, f0, spec, g=g, mel=mel)
+                (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(c, f0, spec, g=g, mel=mel)
 
             y_mel = commons.slice_segments(mel, ids_slice, hps.train.segment_size // hps.data.hop_length)
             y_hat_mel = mel_spectrogram_torch(
@@ -224,10 +255,12 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                                       os.path.join(hps.model_dir, "G_{}.pth".format(global_step)))
                 utils.save_checkpoint(net_d, optim_d, hps.train.learning_rate, epoch,
                                       os.path.join(hps.model_dir, "D_{}.pth".format(global_step)))
+                alert.send_alert(f'====> Epoch: {epoch}. save_checkpoint: {global_step}')
         global_step += 1
 
     if rank == 0:
-        logger.info('====> Epoch: {}'.format(epoch))
+        now = datetime.datetime.now()
+        logger.info(f'====> Epoch: {epoch}, {global_step}, {now}')
 
 
 def evaluate(hps, generator, eval_loader, writer_eval):

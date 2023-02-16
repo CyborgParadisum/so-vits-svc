@@ -44,4 +44,4 @@ class VitsGradio:
 
 grVits = VitsGradio()
 
-grVits.Vits.launch()
+grVits.Vits.launch(debug=True,share=True)

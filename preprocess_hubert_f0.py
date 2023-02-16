@@ -84,7 +84,9 @@ def process(filename):
     else:
         c = torch.load(save_name)
     f0path = filename+".f0.npy"
+    print("f0path",f0path)
     if not os.path.exists(f0path):
+        print("save f0path",f0path)
         cf0, f0 = compute_f0(filename, c.shape[-1] * 2)
         np.save(f0path, f0)
 
@@ -100,7 +102,6 @@ if __name__ == "__main__":
     print("Loaded hubert.")
 
     filenames = glob(f'{args.in_dir}/*/*.wav', recursive=True)#[:10]
-    
+
     for filename in tqdm(filenames):
         process(filename)
-    
