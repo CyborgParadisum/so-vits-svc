@@ -13,3 +13,18 @@ https://stackoverflow.com/questions/68251169/unable-to-install-pyaudio-on-m1-mac
 ```bash
 brew install portaudio
 ```
+
+### local inference
+- linux
+    ```bash
+    conda create --name so-vits-svc python=3.8
+    conda activate so-vits-svc
+    pip install -r requirements.txt
+    ```
+- mac
+    ```bash
+    conda create --name so-vits-svc python=3.10
+    conda activate so-vits-svc
+    pip install -r requirements-mac.txt
+    ```
+
