@@ -1,17 +1,14 @@
 import io
 import logging
 import os
-import time
-from pathlib import Path
 
 import librosa
 import numpy as np
 import soundfile
 
-from inference import infer_tool
 from inference import slicer
 from inference.infer_tool import Svc
-from utils import hubert_path
+from ..utils import hubert_path
 
 logging.getLogger('numba').setLevel(logging.WARNING)
 # chunks_dict = infer_tool.read_temp("inference/chunks_temp.json")
