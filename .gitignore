@@ -19,3 +19,4 @@ __pycache__/
 checkpoints/
 voice_source/
 filelists/
+/models/

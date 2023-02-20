@@ -27,6 +27,9 @@ f0_min = 50.0
 f0_mel_min = 1127 * np.log(1 + f0_min / 700)
 f0_mel_max = 1127 * np.log(1 + f0_max / 700)
 
+project_root_path = os.path.dirname(os.path.realpath(__file__))
+hubert_path = os.path.join(project_root_path, "hubert/hubert-soft-0d54a1f4.pt")
+
 def f0_to_coarse(f0):
   is_torch = isinstance(f0, torch.Tensor)
   f0_mel = 1127 * (1 + f0 / 700).log() if is_torch else 1127 * np.log(1 + f0 / 700)
@@ -40,8 +43,7 @@ def f0_to_coarse(f0):
 
 
 def get_hubert_model(rank=None):
-
-  hubert_soft = hubert_model.hubert_soft("hubert/hubert-soft-0d54a1f4.pt")
+  hubert_soft = hubert_model.hubert_soft(hubert_path)
   if rank is not None:
     hubert_soft = hubert_soft.cuda(rank)
   return hubert_soft
