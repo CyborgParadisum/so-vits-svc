@@ -3,13 +3,6 @@ ifneq ("$(wildcard .env)","")
 	export
 endif
 
-define wget_if_not_exist
-	@if [ ! -f $(1) ]; then \
-		mkdir -p $(dir $(1)); \
-		wget -O $(1) $(2); \
-	fi
-endef
-
 update:
 	rsync -av  \
 		--exclude-from .gitignore \
