@@ -7,7 +7,7 @@ import numpy as np
 import soundfile
 
 from inference import slicer
-from inference.infer_tool import Svc
+from .infer_utils import Svc
 from ..utils import hubert_path
 
 logging.getLogger('numba').setLevel(logging.WARNING)
@@ -64,5 +64,6 @@ class SoVitsSvc(object):
                 _audio = out_audio.cpu().numpy()
             audio.extend(list(_audio))
         audio = (np.array(audio) * 32768.0).astype('int16')
-        os.remove(tmpwav)
+        if os.path.exists(tmpwav):
+            os.remove(tmpwav)
         return self.svc_model.target_sample, audio
