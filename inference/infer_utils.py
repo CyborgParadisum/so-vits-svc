@@ -1,21 +1,13 @@
-import hashlib
-import json
 import logging
-import os
 import time
-from pathlib import Path
 
-import librosa
-import maad
 import numpy as np
-# import onnxruntime
 import parselmouth
-import soundfile
 import torch
 import torchaudio
 
-from hubert import hubert_model
 import utils
+from hubert import hubert_model
 from models import SynthesizerTrn
 
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
