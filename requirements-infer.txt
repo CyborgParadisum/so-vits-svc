@@ -27,7 +27,7 @@ onnxoptimizer
 # pyworld
 pandas
 numpy
-PyAudio
+# PyAudio
 torch
 torchvision
 torchaudio
