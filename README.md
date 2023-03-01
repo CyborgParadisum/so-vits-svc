@@ -1,4 +1,7 @@
 # SoftVC VITS Singing Voice Conversion
+
+## 基于本仓库的成功服务化项目：https://github.com/SuCicada/SuTTS
+
 ## English docs
 [Check here](Eng_docs.md)
 
